@@ -2,6 +2,8 @@
 
 **Vertical:** [Challenge 6] Urban Air Quality Assistant
 
+**Live demo:** https://urban-air-assistant-nine.vercel.app
+
 A GenAI-powered assistant that helps families and communities get through severe winter smog. You enter a city and describe your household. The assistant fetches today's live hourly PM2.5 forecast and builds a personal plan with four parts:
 
 1. **A low-exposure daily routine**: the cleanest and dirtiest hours of the day, masks, kids' play and medical precautions.
@@ -75,6 +77,10 @@ export GEMINI_API_KEY=your_key      # never commit it; see .env.example
 export GEMINI_MODEL=gemini-2.5-flash
 npm start
 ```
+
+### Deployment
+
+Deployed on Vercel. `public/` is served by the CDN and `api/index.js` wraps the same Express app as one serverless function (see `vercel.json`, which also sets the security headers for static files). Set `GEMINI_API_KEY` in the project's environment variables to enable Gemini. `render.yaml` is included as an alternative for long-running Node hosting.
 
 ### API
 
