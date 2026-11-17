@@ -1,0 +1,28 @@
+{
+  "name": "urban-air-assistant",
+  "version": "1.0.0",
+  "description": "GenAI-powered assistant that helps families and communities navigate severe winter smog with personalised, quantified, low-emission routines.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check src/app.js && node --check public/app.js && node --check public/render.js"
+  },
+  "keywords": [
+    "air-quality",
+    "aqi",
+    "smog",
+    "genai",
+    "gemini",
+    "accessibility"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
