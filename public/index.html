@@ -4,104 +4,123 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Urban Air Quality Assistant</title>
-  <meta name="description" content="Personalised, quantified daily routines, indoor air hacks and sustainable alternatives to cope with winter smog.">
+  <meta name="description" content="Type your city and who lives with you. Get today's smog forecast hour by hour, a plan for your household, and how much each choice cuts what you breathe.">
   <meta name="color-scheme" content="light dark">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M8 12h14a3 3 0 1 0-3-3M8 17h18a3 3 0 1 1-3 3M8 22h9' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#1c2731">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c2731'/%3E%3Ccircle cx='21' cy='12' r='5' fill='%23f1d7aa'/%3E%3Cpath d='M3 26h26v3H3zM6 26v-7h4v7zm6 0v-10h5v10zm7 0v-5h4v5z' fill='%23c8bb9f'/%3E%3C/svg%3E">
+  <link rel="preload" href="fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/atkinson-hyperlegible-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <a class="skip" href="#plan-region">Skip to your plan</a>
+  <a class="skip" href="#plan-form">Skip to the form</a>
 
-  <header class="top">
-    <div class="wrap">
-      <h1><span aria-hidden="true" class="logo">~</span> Urban Air Quality Assistant</h1>
-      <p class="tagline">Breathe smarter through winter smog. A personal plan for your family, with the real impact of every choice.</p>
+  <header class="hero">
+    <div class="horizon" id="horizon"></div>
+    <div class="ground">
+      <div class="wrap ground-inner">
+        <p class="brand">Urban Air Quality Assistant</p>
+        <h1 id="hero-title">Smog season. Here's how your family breathes less of it.</h1>
+        <div class="reading" id="hero-reading" hidden>
+          <p class="reading-aqi"><span class="reading-num" id="hero-aqi"></span><span class="reading-unit">AQI</span></p>
+          <p class="reading-detail" id="hero-detail"></p>
+        </div>
+      </div>
     </div>
   </header>
 
   <main class="wrap layout">
-    <section aria-labelledby="form-title" class="card">
-      <h2 id="form-title">Tell us about your household</h2>
+    <section class="panel" aria-labelledby="form-title">
+      <h2 id="form-title">Your household</h2>
       <form id="plan-form" novalidate>
         <div class="field">
           <label for="city">City or area</label>
-          <input id="city" name="city" type="text" autocomplete="address-level2" maxlength="80" placeholder="e.g. Lucknow, Delhi, Kanpur" aria-describedby="city-help">
-          <p id="city-help" class="help">We fetch today's live PM2.5 forecast for this place.</p>
+          <input id="city" name="city" type="text" autocomplete="address-level2" maxlength="80" placeholder="Lucknow, Delhi, Kanpur..." aria-describedby="city-help">
+          <p id="city-help" class="help">We look up today's hourly PM2.5 forecast for this place.</p>
         </div>
 
         <details class="manual">
-          <summary>No internet lookup? Enter the AQI manually</summary>
+          <summary>Enter the AQI from your phone instead</summary>
           <div class="field">
-            <label for="aqi">AQI shown on your phone (0-500)</label>
+            <label for="aqi">AQI (0 to 500)</label>
             <input id="aqi" name="aqi" type="number" inputmode="numeric" min="0" max="500" step="1" aria-describedby="aqi-help">
-            <p id="aqi-help" class="help">Used if the city lookup is unavailable, or on its own.</p>
+            <p id="aqi-help" class="help">Used on its own, or if the city lookup is down.</p>
           </div>
         </details>
 
-        <fieldset>
+        <fieldset class="toggles">
           <legend>Who lives with you?</legend>
-          <label class="check"><input type="checkbox" name="children"> Children under 12</label>
-          <label class="check"><input type="checkbox" name="elderly"> Older adults (65+)</label>
-          <label class="check"><input type="checkbox" name="respiratory"> Asthma, COPD or a heart condition</label>
-          <label class="check"><input type="checkbox" name="pregnant"> Someone who is pregnant</label>
-          <label class="check"><input type="checkbox" name="outdoorWorker"> Someone who works outdoors</label>
+          <label class="toggle"><input type="checkbox" name="children"><span>Children under 12</span></label>
+          <label class="toggle"><input type="checkbox" name="elderly"><span>Someone over 65</span></label>
+          <label class="toggle"><input type="checkbox" name="respiratory"><span>Asthma, COPD or heart condition</span></label>
+          <label class="toggle"><input type="checkbox" name="pregnant"><span>Someone pregnant</span></label>
+          <label class="toggle"><input type="checkbox" name="outdoorWorker"><span>Someone who works outdoors</span></label>
         </fieldset>
 
-        <div class="grid2">
-          <div class="field">
-            <label for="commute">Daily commute</label>
-            <select id="commute" name="commute">
-              <option value="two_wheeler">Motorbike / scooter</option>
-              <option value="car">Car</option>
-              <option value="public_transport">Bus / metro</option>
-              <option value="cycle">Cycle</option>
-              <option value="walk">Walk</option>
-              <option value="work_from_home">Work or study from home</option>
-            </select>
+        <fieldset class="lifestyle">
+          <legend>How you live</legend>
+          <div class="grid2">
+            <div class="field">
+              <label for="commute">Daily commute</label>
+              <select id="commute" name="commute">
+                <option value="two_wheeler">Scooter or motorbike</option>
+                <option value="car">Car</option>
+                <option value="public_transport">Bus or metro</option>
+                <option value="cycle">Cycle</option>
+                <option value="walk">Walk</option>
+                <option value="work_from_home">Work or study from home</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="commuteKm">One way, in km</label>
+              <input id="commuteKm" name="commuteKm" type="number" inputmode="decimal" min="0" max="80" step="0.5" value="8">
+            </div>
+            <div class="field">
+              <label for="cooking">Cooking fuel</label>
+              <select id="cooking" name="cooking">
+                <option value="lpg">LPG cylinder</option>
+                <option value="png">Piped gas</option>
+                <option value="induction">Induction or electric</option>
+                <option value="biomass">Wood, dung or coal</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="heating">Winter heating</label>
+              <select id="heating" name="heating">
+                <option value="none">Warm clothes only</option>
+                <option value="electric">Electric heater</option>
+                <option value="gas">Gas heater</option>
+                <option value="wood_coal">Wood or coal fire</option>
+              </select>
+            </div>
           </div>
-          <div class="field">
-            <label for="commuteKm">One-way distance (km)</label>
-            <input id="commuteKm" name="commuteKm" type="number" inputmode="decimal" min="0" max="80" step="0.5" value="8">
-          </div>
-          <div class="field">
-            <label for="cooking">Cooking fuel</label>
-            <select id="cooking" name="cooking">
-              <option value="lpg">LPG</option>
-              <option value="png">Piped gas (PNG)</option>
-              <option value="induction">Induction / electric</option>
-              <option value="biomass">Wood, dung or coal</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="heating">Winter heating</label>
-            <select id="heating" name="heating">
-              <option value="none">None / warm clothing</option>
-              <option value="electric">Electric heater</option>
-              <option value="gas">Gas heater</option>
-              <option value="wood_coal">Burning wood or coal</option>
-            </select>
-          </div>
-        </div>
+          <label class="toggle"><input type="checkbox" name="hasPurifier"><span>We own an air purifier</span></label>
+        </fieldset>
 
-        <label class="check"><input type="checkbox" name="hasPurifier"> We already own an air purifier</label>
-
-        <button type="submit" class="primary" id="submit-btn">Build my plan</button>
+        <button type="submit" class="primary" id="submit-btn">Build today's plan</button>
       </form>
     </section>
 
     <section id="plan-region" class="results" aria-labelledby="results-title" tabindex="-1">
-      <h2 id="results-title" class="sr-only">Your personalised plan</h2>
-      <div id="status" role="status" aria-live="polite" class="status"></div>
+      <h2 id="results-title" class="sr-only">Your plan for today</h2>
+      <p id="status" role="status" aria-live="polite" class="status"></p>
       <div id="plan-output">
-        <div class="card empty">
-          <p>Your plan will appear here: today's air, your household's risk, a daily routine, indoor air hacks, greener alternatives and the measurable difference they make.</p>
+        <div class="intro">
+          <p class="intro-lead">Smog isn't the same all day. It thickens overnight, clears a little after lunch, and settles again in the evening. Your plan is built around those hours.</p>
+          <ul class="intro-list">
+            <li>When to go out, and when to stay in</li>
+            <li>What to change at home, cheapest first</li>
+            <li>How much each choice cuts what you breathe, in numbers</li>
+          </ul>
+          <button type="button" class="ghost" id="example-btn">Try it with Delhi and two kids at home</button>
         </div>
       </div>
     </section>
   </main>
 
   <footer class="wrap foot">
-    <p>General wellbeing guidance, not medical advice. Air data: Open-Meteo (CAMS). Narration: Google Gemini with a rule-based fallback.</p>
+    <p>General wellbeing guidance, not medical advice. If anyone has trouble breathing, chest pain or dizziness, see a doctor.</p>
+    <p>Air data from Open-Meteo (Copernicus CAMS forecast). Briefings by Google Gemini, with a built-in fallback. <a href="https://github.com/GamerxD01/urban-air-assistant">Source code on GitHub</a>.</p>
   </footer>
 
   <script type="module" src="app.js"></script>

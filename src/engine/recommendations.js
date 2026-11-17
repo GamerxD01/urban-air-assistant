@@ -8,7 +8,7 @@ const fmtHour = (h) => {
 };
 export const fmtWindow = (w) => `${fmtHour(w.start)}-${fmtHour(w.end)}`;
 
-/** Each item: { id, title, detail, why, tag } - `why` always explains the direct effect of the choice. */
+/** Each item: { id, title, detail, why, tag, when? } - `why` always explains the direct effect of the choice. */
 
 export function buildRoutine({ airQuality, risk, profile, impact }) {
   const { band, bestWindow, worstWindow } = airQuality;
@@ -19,6 +19,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (band.index <= 1 && risk.tier <= 1) {
     items.push({
       id: 'normal-day',
+      when: 'All day',
       title: 'Go about your day normally',
       detail: `Air is ${band.label.toLowerCase()} (AQI ${airQuality.aqi}). Outdoor play, walks and open windows are fine.`,
       why: 'At this level the health effect of outdoor exposure is small for most people.',
@@ -29,6 +30,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
 
   items.push({
     id: 'outdoor-window',
+      when: fmtWindow(bestWindow),
     title: `Do outdoor time at ${fmtWindow(bestWindow)}`,
     detail: `This is today's cleanest daylight window (about ${bestWindow.avg} µg/m³ PM2.5). Keep it to ${impact.outdoorHoursRecommended >= 1 ? '1 hour' : `${Math.round(impact.outdoorHoursRecommended * 60)} minutes`} and keep it gentle.`,
     why: `Air at ${fmtWindow(worstWindow)} is about ${Math.round((worstWindow.avg / bestWindow.avg - 1) * 100)}% dirtier, so the same walk delivers that much more pollution to your lungs.`,
@@ -38,6 +40,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (band.index >= 2) {
     items.push({
       id: 'avoid-peak',
+      when: fmtWindow(worstWindow),
       title: `Stay indoors at ${fmtWindow(worstWindow)}`,
       detail: 'Cold air traps smoke and exhaust close to the ground at night and in the early morning.',
       why: 'Move school drop-offs, jogging and vegetable shopping out of this slot where you can.',
@@ -48,6 +51,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (household.children || risk.tier >= 4) {
     items.push({
       id: 'kids-play',
+      when: 'All day',
       title: household.children ? 'Keep children\'s active play indoors on bad-air days' : 'Swap hard exercise for indoor activity',
       detail: 'Skipping outdoor sports and PE-style play is the single most protective step when AQI is very poor or worse.',
       why: 'Running multiplies breathing rate by 2-3x, so a short sprint outside can inhale as much smog as hours of sitting.',
@@ -59,6 +63,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
     const onCommute = MODES[lifestyle.commute].maskable && lifestyle.commute !== 'work_from_home' ? ' and on your commute' : '';
     items.push({
       id: 'mask',
+      when: 'Whenever outside',
       title: `Wear a well-fitted N95/FFP2 mask outdoors${onCommute}`,
       detail: 'Cloth and surgical masks barely stop PM2.5. Pick a respirator with no gaps and replace it when it is damp or soiled.',
       why: 'A properly fitted respirator typically cuts the PM2.5 you breathe in by about 80%.',
@@ -69,6 +74,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (household.respiratory) {
     items.push({
       id: 'medical',
+      when: 'If symptoms appear',
       title: 'Keep reliever medication to hand and follow the care plan',
       detail: 'If breathlessness, wheeze or chest tightness increases, contact your doctor rather than waiting for the air to clear.',
       why: 'People with asthma, COPD or heart disease are the first to be hurt by smog spikes.',
@@ -79,6 +85,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (household.pregnant || household.elderly) {
     items.push({
       id: 'vulnerable',
+      when: 'All day',
       title: 'Limit non-essential trips and use indoor exercise',
       detail: 'Prefer indoor stretching, yoga or corridor walks over street walks while air is this poor.',
       why: 'Pregnancy and older age both make the body less able to cope with fine particles.',
@@ -89,6 +96,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (household.outdoorWorker && band.index >= 3) {
     items.push({
       id: 'outdoor-work',
+      when: fmtWindow(bestWindow),
       title: 'Use a respirator and schedule heavy work in the cleanest window',
       detail: `Do physical tasks around ${fmtWindow(bestWindow)} and take breaks indoors with filtered air.`,
       why: 'Heavy work multiplies breathing rate, which multiplies the pollution that reaches the lungs.',
@@ -99,6 +107,7 @@ export function buildRoutine({ airQuality, risk, profile, impact }) {
   if (sensitive && band.index >= 4) {
     items.push({
       id: 'schedule-flex',
+      when: 'Worst days',
       title: 'Ask school or work for flexibility on the worst days',
       detail: 'Remote work, indoor assemblies or a later start can all take people off the road in the peak hours.',
       why: 'Avoiding the morning peak is one of the cheapest exposure cuts available.',

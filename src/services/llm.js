@@ -108,7 +108,7 @@ export function ruleNarration(plan) {
     return `Air quality${where} is ${plan.airQuality.band.label.toLowerCase()} today (AQI ${plan.airQuality.aqi}), so no special precautions are needed. Enjoy outdoor time, and consider joining a community clean-air group to keep it that way.`;
   }
   const groups = plan.risk.sensitiveGroups.length ? ` Your household includes ${plan.risk.sensitiveGroups.join(' and ')}, so we take extra care.` : '';
-  return `Air${where} is ${plan.airQuality.band.label.toLowerCase()} today (AQI ${plan.airQuality.aqi}).${groups} Your biggest single win is: ${top.label.toLowerCase()}, which alone cuts your exposure by about ${top.savedPct}%. Together, this plan lowers your PM2.5 intake by about ${plan.impact.reductionPct}%. For the community, help stop open burning and idling near schools.`;
+  return `Air${where} is ${plan.airQuality.band.label.toLowerCase()} today (AQI ${plan.airQuality.aqi}).${groups} Your biggest single win: ${top.label.charAt(0).toLowerCase()}${top.label.slice(1)}, which alone cuts your exposure by about ${top.savedPct}%. Together, this plan lowers your PM2.5 intake by about ${plan.impact.reductionPct}%. For the community, help stop open burning and idling near schools.`;
 }
 
 const TOPICS = [
