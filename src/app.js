@@ -56,7 +56,7 @@ export function createApp(deps = {}) {
 
   const app = express();
   app.disable('x-powered-by');
-  if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+  if (process.env.TRUST_PROXY === '1' || process.env.VERCEL) app.set('trust proxy', 1);
   app.use(securityHeaders);
   app.use(express.json({ limit: '16kb' }));
   app.use(express.static(PUBLIC_DIR, { maxAge: '1h', index: 'index.html' }));
