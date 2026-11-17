@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp, parseAirInput } from '../src/app.js';
+import { createApp, parseAirInput } from '../src/createApp.js';
 import { createAssistant } from '../src/services/llm.js';
 import { UpstreamError } from '../src/services/airQuality.js';
 import { rateLimit } from '../src/middleware/security.js';

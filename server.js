@@ -1,16 +1,22 @@
-import { createApp } from './src/app.js';
+import { createApp } from './src/createApp.js';
 import { createAssistant } from './src/services/llm.js';
 
-const port = Number(process.env.PORT) || 3000;
 const assistant = createAssistant({
   apiKey: process.env.GEMINI_API_KEY ?? '',
   model: process.env.GEMINI_MODEL || undefined,
 });
 
-const server = createApp({ assistant }).listen(port, () => {
-  console.log(`Urban Air Quality Assistant on http://localhost:${port} (GenAI: ${assistant.enabled ? 'Gemini' : 'rule-based fallback'})`);
-});
+const app = createApp({ assistant });
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+// Serverless platforms (Vercel) import the app; locally and on Render we listen ourselves.
+if (!process.env.VERCEL) {
+  const port = Number(process.env.PORT) || 3000;
+  const server = app.listen(port, () => {
+    console.log(`Urban Air Quality Assistant on http://localhost:${port} (GenAI: ${assistant.enabled ? 'Gemini' : 'rule-based fallback'})`);
+  });
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => server.close(() => process.exit(0)));
+  }
 }
+
+export default app;
