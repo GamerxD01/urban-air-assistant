@@ -32,7 +32,9 @@ export const UPSTREAM = Object.freeze({
 export const GENAI = Object.freeze({
   defaultModel: 'gemini-3.8-flash',
   timeoutMs: 20_000,
-  temperature: 0.4,
+  // Short, grounded explanations need little reasoning; "low" keeps latency well under the timeout.
+  // Temperature is left at the model default, as Google recommends for Gemini 3 models.
+  thinkingLevel: 'low',
   maxOutputTokens: 2048,
 });
 

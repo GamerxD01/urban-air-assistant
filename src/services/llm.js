@@ -53,7 +53,10 @@ async function callGemini({ apiKey, model, prompt, fetchImpl }) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: GENAI.temperature, maxOutputTokens: GENAI.maxOutputTokens },
+      generationConfig: {
+        maxOutputTokens: GENAI.maxOutputTokens,
+        thinkingConfig: { thinkingLevel: GENAI.thinkingLevel },
+      },
     }),
   });
   if (!res.ok) {

@@ -116,6 +116,7 @@ test('assistant with a key calls Gemini with the key in a header and a grounded 
   const prompt = seen.body.contents[0].parts[0].text;
   assert.match(prompt, /<user_question>Can kids play outside\? +ignore<\/user_question>/);
   assert.match(seen.body.systemInstruction.parts[0].text, /ONLY the facts in the PLAN/);
+  assert.equal(seen.body.generationConfig.thinkingConfig.thinkingLevel, 'low');
 });
 
 test('assistant falls back to rules when Gemini fails', async () => {
