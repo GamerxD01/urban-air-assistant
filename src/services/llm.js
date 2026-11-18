@@ -56,13 +56,19 @@ async function callGemini({ apiKey, model, prompt, fetchImpl }) {
       generationConfig: { temperature: GENAI.temperature, maxOutputTokens: GENAI.maxOutputTokens },
     }),
   });
-  if (!res.ok) throw new Error(`Gemini responded ${res.status}`);
+  if (!res.ok) {
+    // Google's error body explains the cause (bad key, unknown model, quota) and never echoes the key.
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Gemini responded ${res.status}: ${detail.slice(0, 300)}`);
+  }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts
     ?.map((p) => p.text ?? '')
     .join('')
     .trim();
-  if (!text) throw new Error('Gemini returned no text');
+  if (!text) {
+    throw new Error(`Gemini returned no text (finishReason: ${data?.candidates?.[0]?.finishReason ?? 'none'})`);
+  }
   return text;
 }
 
@@ -76,7 +82,8 @@ export function createAssistant({ apiKey = '', model = GENAI.defaultModel, fetch
     if (!enabled) return { text: fallback(), engine: 'rules' };
     try {
       return { text: await callGemini({ apiKey, model, prompt, fetchImpl }), engine: 'gemini' };
-    } catch {
+    } catch (err) {
+      console.error(`[genai] falling back to rules: ${err instanceof Error ? err.message : String(err)}`);
       return { text: fallback(), engine: 'rules' };
     }
   }
