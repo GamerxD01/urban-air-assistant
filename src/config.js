@@ -31,7 +31,7 @@ export const UPSTREAM = Object.freeze({
 /** Gemini client behaviour. */
 export const GENAI = Object.freeze({
   defaultModel: 'gemini-3.8-flash',
-  timeoutMs: 12_000,
+  timeoutMs: 20_000,
   temperature: 0.4,
   maxOutputTokens: 2048,
 });

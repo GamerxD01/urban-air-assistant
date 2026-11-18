@@ -15,7 +15,7 @@ const ENDPOINT = (model) =>
 
 const SYSTEM_PROMPT = `You are the Urban Air Quality Assistant helping families and communities cope with winter smog.
 Rules:
-- Use ONLY the facts in the PLAN JSON provided. Never invent AQI values, percentages, medicines or products.
+- Use ONLY the facts in the PLAN JSON provided. airQualityBand describes the outdoor air; householdRisk is that air combined with who lives in the home. Never describe the air using the householdRisk label. Never invent AQI values, percentages, medicines or products.
 - Explain the direct effect of each choice in plain language (for example "this cuts your exposure by about X%").
 - Be warm, calm and practical. Never alarmist. Use short sentences. Do not use markdown headings.
 - You are not a doctor. For breathing difficulty, chest pain or dizziness, tell the person to contact a doctor.
@@ -29,8 +29,8 @@ export function planForPrompt(plan) {
     location: plan.airQuality.location?.name ?? null,
     pm25: plan.airQuality.pm25,
     aqi: plan.airQuality.aqi,
-    band: plan.airQuality.band.label,
-    risk: plan.risk.label,
+    airQualityBand: plan.airQuality.band.label,
+    householdRisk: plan.risk.label,
     sensitiveGroups: plan.risk.sensitiveGroups,
     bestWindow: plan.airQuality.bestWindow,
     worstWindow: plan.airQuality.worstWindow,

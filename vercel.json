@@ -44,7 +44,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "maxDuration": 20
+      "maxDuration": 30
     }
   }
 }

@@ -4,13 +4,14 @@ import { assessRisk } from './risk.js';
 import { computeImpact } from './impact.js';
 import { buildRoutine, buildIndoorHacks, buildSustainable, fmtWindow } from './recommendations.js';
 
+/** One line per household risk tier (not air band): it reflects air quality and who lives in the home. */
 const HEADLINES = [
-  'Air is clean - enjoy your day.',
-  'Air is acceptable for most people.',
-  'Air is unhealthy for sensitive groups - plan your day around the clean window.',
-  'Air is poor - cut exposure where you can.',
-  'Air is very poor - treat today as a protect-yourself day.',
-  'Air is severe - minimise time outdoors today.',
+  'Low risk for your household today. Enjoy your day.',
+  'Low risk for your household today.',
+  'Moderate risk for your household. Plan your day around the clean window.',
+  'High risk for your household. Cut exposure where you can.',
+  'Very high risk for your household. Treat today as a protect-yourself day.',
+  'Severe risk for your household. Keep time outdoors to a minimum.',
 ];
 
 /**
