@@ -145,7 +145,7 @@ Gemini is optional. Without a key the app uses its built-in rules narrator, so i
 
 ```bash
 export GEMINI_API_KEY=your_key        # never commit it; see .env.example
-export GEMINI_MODEL=gemini-2.5-flash
+export GEMINI_MODEL=gemini-3.8-flash
 npm start
 ```
 

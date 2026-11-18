@@ -30,10 +30,10 @@ export const UPSTREAM = Object.freeze({
 
 /** Gemini client behaviour. */
 export const GENAI = Object.freeze({
-  defaultModel: 'gemini-2.5-flash',
+  defaultModel: 'gemini-3.8-flash',
   timeoutMs: 12_000,
   temperature: 0.4,
-  maxOutputTokens: 600,
+  maxOutputTokens: 2048,
 });
 
 export const STATIC_CACHE_MAX_AGE = '1h';
