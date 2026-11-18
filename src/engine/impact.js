@@ -142,7 +142,11 @@ export function computeImpact({ airQuality, lifestyle, risk }) {
     assumptions: {
       ugPerCigarette: UG_PER_CIGARETTE,
       maskPassThrough: MASK_PASS_THROUGH,
-      indoorRatio: { typical: INDOOR_RATIO_TYPICAL, diyFilter: INDOOR_RATIO_SEALED_DIY, purifier: INDOOR_RATIO_SEALED_PURIFIER },
+      indoorRatio: {
+        typical: INDOOR_RATIO_TYPICAL,
+        diyFilter: INDOOR_RATIO_SEALED_DIY,
+        purifier: INDOOR_RATIO_SEALED_PURIFIER,
+      },
     },
   };
 }

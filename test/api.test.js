@@ -1,6 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp, parseAirInput } from '../src/createApp.js';
+import { createApp } from '../src/createApp.js';
+import { parseAirInput } from '../src/validation.js';
 import { createAssistant } from '../src/services/llm.js';
 import { UpstreamError } from '../src/services/airQuality.js';
 import { rateLimit } from '../src/middleware/security.js';
@@ -13,16 +14,22 @@ before(async () => {
   const app = createApp({
     assistant: createAssistant(),
     airQualityForCity: async (city) => lookupBehaviour(city),
-    rateLimitMax: 1000,
+    rateLimits: { api: { max: 1000 }, genai: { max: 1000 } },
   });
-  await new Promise((resolve) => { server = app.listen(0, '127.0.0.1', resolve); });
+  await new Promise((resolve) => {
+    server = app.listen(0, '127.0.0.1', resolve);
+  });
   base = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(() => new Promise((resolve) => server.close(resolve)));
 
 const post = (path, body, raw = false) =>
-  fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: raw ? body : JSON.stringify(body) });
+  fetch(base + path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: raw ? body : JSON.stringify(body),
+  });
 
 test('GET /api/health reports GenAI status', async () => {
   const res = await fetch(`${base}/api/health`);
@@ -40,7 +47,11 @@ test('POST /api/plan with a manual AQI returns a full plan and narration', async
 });
 
 test('POST /api/plan with a city uses the live lookup', async () => {
-  lookupBehaviour = async (city) => ({ hourly: Array(24).fill(120), source: 'open-meteo', location: { name: `${city}, India` } });
+  lookupBehaviour = async (city) => ({
+    hourly: Array(24).fill(120),
+    source: 'open-meteo',
+    location: { name: `${city}, India` },
+  });
   const res = await post('/api/plan', { city: 'Kanpur' });
   const { plan } = await res.json();
   assert.equal(plan.airQuality.location.name, 'Kanpur, India');
@@ -49,7 +60,9 @@ test('POST /api/plan with a city uses the live lookup', async () => {
 });
 
 test('city lookup failure falls back to a manual AQI when one was supplied', async () => {
-  lookupBehaviour = async () => { throw new UpstreamError('down'); };
+  lookupBehaviour = async () => {
+    throw new UpstreamError('down');
+  };
   const res = await post('/api/plan', { city: 'Agra', aqi: 250 });
   assert.equal(res.status, 200);
   const { plan } = await res.json();
@@ -58,14 +71,18 @@ test('city lookup failure falls back to a manual AQI when one was supplied', asy
 });
 
 test('city lookup failure without a manual reading returns a helpful error', async () => {
-  lookupBehaviour = async () => { throw new UpstreamError('The air-quality service could not be reached.'); };
+  lookupBehaviour = async () => {
+    throw new UpstreamError('The air-quality service could not be reached.');
+  };
   const res = await post('/api/plan', { city: 'Agra' });
   assert.equal(res.status, 502);
   assert.match((await res.json()).error, /enter the AQI/i);
 });
 
 test('unknown places return 404 without the manual hint', async () => {
-  lookupBehaviour = async () => { throw new UpstreamError('No place found for "zzz".', 404); };
+  lookupBehaviour = async () => {
+    throw new UpstreamError('No place found for "zzz".', 404);
+  };
   const res = await post('/api/plan', { city: 'zzz' });
   assert.equal(res.status, 404);
 });
@@ -84,7 +101,15 @@ test('oversized bodies are rejected with 413', async () => {
 });
 
 test('POST /api/ask answers a follow-up grounded in the plan', async () => {
-  const res = await post('/api/ask', { aqi: 300, question: 'Which mask should I wear?', profile: { household: { respiratory: true } }, history: [{ role: 'user', text: 'hi' }, { role: 'bogus', text: 'x' }] });
+  const res = await post('/api/ask', {
+    aqi: 300,
+    question: 'Which mask should I wear?',
+    profile: { household: { respiratory: true } },
+    history: [
+      { role: 'user', text: 'hi' },
+      { role: 'bogus', text: 'x' },
+    ],
+  });
   assert.equal(res.status, 200);
   const { answer } = await res.json();
   assert.match(answer.text, /N95|FFP2|mask/i);
@@ -119,9 +144,22 @@ test('rate limiter blocks after the quota and resets next window', () => {
   const limiter = rateLimit({ windowMs: 1000, max: 2, now: () => t });
   const run = () => {
     const out = { status: 200, headers: {} };
-    const res = { set: (k, v) => { out.headers[k] = v; }, status(s) { out.status = s; return this; }, json() { return this; } };
+    const res = {
+      set: (k, v) => {
+        out.headers[k] = v;
+      },
+      status(s) {
+        out.status = s;
+        return this;
+      },
+      json() {
+        return this;
+      },
+    };
     let passed = false;
-    limiter({ ip: '1.2.3.4' }, res, () => { passed = true; });
+    limiter({ ip: '1.2.3.4' }, res, () => {
+      passed = true;
+    });
     return { passed, ...out };
   };
   assert.equal(run().passed, true);

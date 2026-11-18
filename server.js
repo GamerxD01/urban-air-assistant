@@ -12,7 +12,9 @@ const app = createApp({ assistant });
 if (!process.env.VERCEL) {
   const port = Number(process.env.PORT) || 3000;
   const server = app.listen(port, () => {
-    console.log(`Urban Air Quality Assistant on http://localhost:${port} (GenAI: ${assistant.enabled ? 'Gemini' : 'rule-based fallback'})`);
+    console.log(
+      `Urban Air Quality Assistant on http://localhost:${port} (GenAI: ${assistant.enabled ? 'Gemini' : 'rule-based fallback'})`,
+    );
   });
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => server.close(() => process.exit(0)));

@@ -12,7 +12,13 @@ const MAX_COMMUTE_KM = 80;
 
 const asBool = (v) => v === true || v === 'true';
 
-function pickEnum(value, allowed, fallback, field, errors) {
+/**
+ * @param {any} value raw input
+ * @param {{ field: string, allowed: string[], fallback: string }} spec
+ * @param {string[]} errors collects a message when the value is not allowed
+ * @returns {string}
+ */
+function pickEnum(value, { field, allowed, fallback }, errors) {
   if (value === undefined || value === null || value === '') return fallback;
   if (allowed.includes(value)) return value;
   errors.push(`${field} must be one of: ${allowed.join(', ')}`);
@@ -48,8 +54,13 @@ export function normalizeProfile(raw) {
     outdoorWorker: asBool(hh.outdoorWorker),
   };
 
-  const commute = pickEnum(ls.commute, COMMUTE_MODES, DEFAULT_PROFILE.lifestyle.commute, 'commute', errors);
-  let commuteKm = ls.commuteKm === undefined || ls.commuteKm === '' ? DEFAULT_PROFILE.lifestyle.commuteKm : Number(ls.commuteKm);
+  const commute = pickEnum(
+    ls.commute,
+    { field: 'commute', allowed: COMMUTE_MODES, fallback: DEFAULT_PROFILE.lifestyle.commute },
+    errors,
+  );
+  let commuteKm =
+    ls.commuteKm === undefined || ls.commuteKm === '' ? DEFAULT_PROFILE.lifestyle.commuteKm : Number(ls.commuteKm);
   if (!Number.isFinite(commuteKm) || commuteKm < 0 || commuteKm > MAX_COMMUTE_KM) {
     errors.push(`commuteKm must be a number between 0 and ${MAX_COMMUTE_KM}`);
     commuteKm = DEFAULT_PROFILE.lifestyle.commuteKm;
@@ -59,9 +70,21 @@ export function normalizeProfile(raw) {
   const lifestyle = {
     commute,
     commuteKm: Math.round(commuteKm * 10) / 10,
-    cooking: pickEnum(ls.cooking, COOKING_FUELS, DEFAULT_PROFILE.lifestyle.cooking, 'cooking', errors),
-    heating: pickEnum(ls.heating, HEATING_TYPES, DEFAULT_PROFILE.lifestyle.heating, 'heating', errors),
-    homeType: pickEnum(ls.homeType, HOME_TYPES, DEFAULT_PROFILE.lifestyle.homeType, 'homeType', errors),
+    cooking: pickEnum(
+      ls.cooking,
+      { field: 'cooking', allowed: COOKING_FUELS, fallback: DEFAULT_PROFILE.lifestyle.cooking },
+      errors,
+    ),
+    heating: pickEnum(
+      ls.heating,
+      { field: 'heating', allowed: HEATING_TYPES, fallback: DEFAULT_PROFILE.lifestyle.heating },
+      errors,
+    ),
+    homeType: pickEnum(
+      ls.homeType,
+      { field: 'homeType', allowed: HOME_TYPES, fallback: DEFAULT_PROFILE.lifestyle.homeType },
+      errors,
+    ),
     hasPurifier: asBool(ls.hasPurifier),
   };
 

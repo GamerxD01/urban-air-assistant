@@ -3,6 +3,10 @@
  * so API data (including model output) can never inject markup.
  */
 
+import { BAND_VARS, bandOf, hourLabel, timeSpan } from './format.js';
+
+export { BAND_VARS };
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function h(tag, attrs = {}, ...children) {
@@ -26,11 +30,7 @@ function s(tag, attrs = {}, parent) {
   return el;
 }
 
-export const BAND_VARS = ['--b0', '--b1', '--b2', '--b3', '--b4', '--b5'];
-const PM_EDGES = [30, 60, 90, 120, 250];
-const bandOf = (pm) => { const i = PM_EDGES.findIndex((e) => pm <= e); return i === -1 ? 5 : i; };
-const hourLabel = (hr) => `${hr % 12 === 0 ? 12 : hr % 12}${hr % 24 >= 12 ? 'pm' : 'am'}`;
-const span = (w) => `from ${hourLabel(w.start)} to ${hourLabel(w.end % 24)}`;
+const span = timeSpan;
 
 /** 24 bars, one per hour, coloured by CPCB band, with brackets for the go-out and stay-in windows. */
 function dayStrip(air) {
@@ -49,7 +49,18 @@ function dayStrip(air) {
     `Worst is ${span(air.worstWindow)}, about ${Math.round(air.worstWindow.avg)}.`;
 
   air.hourly.forEach((v, i) => {
-    const bar = s('rect', { class: 'bar', x: (x(i) + 2).toFixed(1), y: y(v).toFixed(1), width: (slot - 4).toFixed(1), height: (H - pad.b - y(v)).toFixed(1), rx: 3 }, svg);
+    const bar = s(
+      'rect',
+      {
+        class: 'bar',
+        x: (x(i) + 2).toFixed(1),
+        y: y(v).toFixed(1),
+        width: (slot - 4).toFixed(1),
+        height: (H - pad.b - y(v)).toFixed(1),
+        rx: 3,
+      },
+      svg,
+    );
     bar.style.fill = `var(${BAND_VARS[bandOf(v)]})`;
   });
 
@@ -83,7 +94,13 @@ function cigarette(avoided) {
 }
 
 function block(id, title, lede, ...body) {
-  return h('section', { class: 'block', 'aria-labelledby': id }, h('h3', { id }, title), lede && h('p', { class: 'lede' }, lede), ...body);
+  return h(
+    'section',
+    { class: 'block', 'aria-labelledby': id },
+    h('h3', { id }, title),
+    lede && h('p', { class: 'lede' }, lede),
+    ...body,
+  );
 }
 
 function itemBody(it) {
@@ -100,13 +117,23 @@ function checklist(name, items) {
     const done = list.querySelectorAll('input:checked').length;
     progress.textContent = `${done} of ${items.length} done`;
   };
-  const list = h('ul', { class: 'checklist' }, items.map((it, i) => {
-    const id = `${name}-${i}`;
-    return h('li', {},
-      h('label', { class: 'check-row', for: id },
-        h('input', { type: 'checkbox', id }),
-        h('span', { class: 'check-body' }, ...itemBody(it))));
-  }));
+  const list = h(
+    'ul',
+    { class: 'checklist' },
+    items.map((it, i) => {
+      const id = `${name}-${i}`;
+      return h(
+        'li',
+        {},
+        h(
+          'label',
+          { class: 'check-row', for: id },
+          h('input', { type: 'checkbox', id }),
+          h('span', { class: 'check-body' }, ...itemBody(it)),
+        ),
+      );
+    }),
+  );
   list.addEventListener('change', update);
   update();
   return [progress, list];
@@ -116,48 +143,132 @@ export function renderPlan(plan, narration) {
   const { airQuality: air, impact } = plan;
   const out = [];
 
-  out.push(h('section', { class: 'block', 'aria-labelledby': 'brief-title' },
-    h('h3', { id: 'brief-title', class: 'sr-only' }, 'Today\'s briefing'),
-    h('p', { class: 'briefing' }, narration.text),
-    h('p', { class: 'engine' }, narration.engine === 'gemini'
-      ? 'Written by Google Gemini from the numbers in your plan.'
-      : 'Written by the built-in rules engine from the numbers in your plan.')));
+  out.push(
+    h(
+      'section',
+      { class: 'block', 'aria-labelledby': 'brief-title' },
+      h('h3', { id: 'brief-title', class: 'sr-only' }, "Today's briefing"),
+      h('p', { class: 'briefing' }, narration.text),
+      h(
+        'p',
+        { class: 'engine' },
+        narration.engine === 'gemini'
+          ? 'Written by Google Gemini from the numbers in your plan.'
+          : 'Written by the built-in rules engine from the numbers in your plan.',
+      ),
+    ),
+  );
 
-  const strip = h('div', { class: 'strip' }, dayStrip(air),
-    h('ul', { class: 'legend', 'aria-label': 'Colour key, CPCB AQI bands' },
-      LEGEND.map((name, i) => h('li', {}, h('span', { class: `swatch sw${i}` }), name))));
-  out.push(block('strip-title', 'Today, hour by hour',
-    air.hourlyIsEstimated
-      ? 'Shape estimated from a typical winter day, scaled to your reading.'
-      : `Hourly PM2.5 forecast for ${air.location?.name ?? 'your area'}. Each bar is one hour.`,
-    strip,
-    h('p', { class: 'strip-note' }, `Go out ${span(air.bestWindow)}. Stay in ${span(air.worstWindow)}, when the air is about ${Math.round((air.worstWindow.avg / air.bestWindow.avg - 1) * 100)}% dirtier.`)));
+  const strip = h(
+    'div',
+    { class: 'strip' },
+    dayStrip(air),
+    h(
+      'ul',
+      { class: 'legend', 'aria-label': 'Colour key, CPCB AQI bands' },
+      LEGEND.map((name, i) => h('li', {}, h('span', { class: `swatch sw${i}` }), name)),
+    ),
+  );
+  out.push(
+    block(
+      'strip-title',
+      'Today, hour by hour',
+      air.hourlyIsEstimated
+        ? 'Shape estimated from a typical winter day, scaled to your reading.'
+        : `Hourly PM2.5 forecast for ${air.location?.name ?? 'your area'}. Each bar is one hour.`,
+      strip,
+      h(
+        'p',
+        { class: 'strip-note' },
+        `Go out ${span(air.bestWindow)}. Stay in ${span(air.worstWindow)}, when the air is about ${Math.round((air.worstWindow.avg / air.bestWindow.avg - 1) * 100)}% dirtier.`,
+      ),
+    ),
+  );
 
   if (impact.reductionPct > 0) {
     const total = Math.min(14, Math.max(1, Math.round(impact.baseline.cigarettes)));
     const saved = Math.min(total, Math.round(impact.cigarettesPerDayAvoided));
-    const cigs = h('div', { class: 'cigs', role: 'img', 'aria-label': `${total} cigarettes, ${saved} of them crossed out` });
+    const cigs = h('div', {
+      class: 'cigs',
+      role: 'img',
+      'aria-label': `${total} cigarettes, ${saved} of them crossed out`,
+    });
     for (let i = 0; i < total; i += 1) cigs.append(cigarette(i >= total - saved));
 
     const maxPct = Math.max(...impact.levers.map((l) => l.savedPct), 1);
-    out.push(block('impact-title', 'What your choices change', null,
-      h('div', { class: 'impact-head' },
-        h('div', {}, h('p', { class: 'cut' }, `−${impact.reductionPct}%`), h('p', { class: 'cut-label' }, 'less PM2.5 reaching your lungs today')),
-        h('div', {}, cigs, h('p', { class: 'cigs-caption' },
-          `Breathing today's air without changes is like smoking ${impact.baseline.cigarettes.toFixed(1)} cigarettes. This plan takes away ${impact.cigarettesPerDayAvoided.toFixed(1)} of them.`))),
-      h('ul', { class: 'levers', 'aria-label': 'How much each step cuts on its own' }, impact.levers.map((l) => {
-        const fill = h('div', { class: 'lever-fill' });
-        fill.style.width = `${(l.savedPct / maxPct) * 100}%`;
-        return h('li', { class: 'lever' }, h('span', { class: 'lever-name' }, l.label), h('span', { class: 'lever-val' }, `−${l.savedPct}%`), h('div', { class: 'lever-track', 'aria-hidden': 'true' }, fill));
-      })),
-      h('p', { class: 'method' }, `How we count: outdoor PM2.5 × hours × breathing rate × how much of it gets indoors or into your vehicle. ${Math.round(impact.baseline.dose)} µg inhaled without changes, ${Math.round(impact.recommended.dose)} µg with the plan. Estimates, not a medical measurement.`)));
+    out.push(
+      block(
+        'impact-title',
+        'What your choices change',
+        null,
+        h(
+          'div',
+          { class: 'impact-head' },
+          h(
+            'div',
+            {},
+            h('p', { class: 'cut' }, `−${impact.reductionPct}%`),
+            h('p', { class: 'cut-label' }, 'less PM2.5 reaching your lungs today'),
+          ),
+          h(
+            'div',
+            {},
+            cigs,
+            h(
+              'p',
+              { class: 'cigs-caption' },
+              `Breathing today's air without changes is like smoking ${impact.baseline.cigarettes.toFixed(1)} cigarettes. This plan takes away ${impact.cigarettesPerDayAvoided.toFixed(1)} of them.`,
+            ),
+          ),
+        ),
+        h(
+          'ul',
+          { class: 'levers', 'aria-label': 'How much each step cuts on its own' },
+          impact.levers.map((l) => {
+            const fill = h('div', { class: 'lever-fill' });
+            fill.style.width = `${(l.savedPct / maxPct) * 100}%`;
+            return h(
+              'li',
+              { class: 'lever' },
+              h('span', { class: 'lever-name' }, l.label),
+              h('span', { class: 'lever-val' }, `−${l.savedPct}%`),
+              h('div', { class: 'lever-track', 'aria-hidden': 'true' }, fill),
+            );
+          }),
+        ),
+        h(
+          'p',
+          { class: 'method' },
+          `How we count: outdoor PM2.5 × hours × breathing rate × how much of it gets indoors or into your vehicle. ${Math.round(impact.baseline.dose)} µg inhaled without changes, ${Math.round(impact.recommended.dose)} µg with the plan. Estimates, not a medical measurement.`,
+        ),
+      ),
+    );
   }
 
-  out.push(block('day-title', 'Your day', null,
-    h('ol', { class: 'timeline' }, plan.routine.map((it) => h('li', {}, h('p', { class: 'when' }, it.when ?? 'All day'), h('div', {}, ...itemBody(it)))))));
+  out.push(
+    block(
+      'day-title',
+      'Your day',
+      null,
+      h(
+        'ol',
+        { class: 'timeline' },
+        plan.routine.map((it) =>
+          h('li', {}, h('p', { class: 'when' }, it.when ?? 'All day'), h('div', {}, ...itemBody(it))),
+        ),
+      ),
+    ),
+  );
 
   out.push(block('home-title', 'At home', 'Tick things off as you do them.', ...checklist('home', plan.indoor)));
-  out.push(block('street-title', 'For your street and city', 'Changes that clean the air for everyone around you, not just your household.', ...checklist('street', plan.sustainable)));
+  out.push(
+    block(
+      'street-title',
+      'For your street and city',
+      'Changes that clean the air for everyone around you, not just your household.',
+      ...checklist('street', plan.sustainable),
+    ),
+  );
   return out;
 }
 

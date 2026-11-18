@@ -21,7 +21,9 @@ function fakeFetch(routes) {
   return fn;
 }
 
-const geoOk = json({ results: [{ name: 'Lucknow', admin1: 'Uttar Pradesh', country: 'India', latitude: 26.84, longitude: 80.94 }] });
+const geoOk = json({
+  results: [{ name: 'Lucknow', admin1: 'Uttar Pradesh', country: 'India', latitude: 26.84, longitude: 80.94 }],
+});
 const hourly24 = Array.from({ length: 24 }, (_, i) => 100 + i);
 const aqOk = json({ current: { time: '2026-11-17T21:00', pm2_5: 150 }, hourly: { pm2_5: hourly24 } });
 
@@ -36,15 +38,24 @@ test('geocode resolves a place and caches it', async () => {
 
 test('geocode reports an unknown place as 404', async () => {
   const f = fakeFetch({ 'geocoding-api': json({}) });
-  await assert.rejects(geocode('Nowhereville', { fetchImpl: f }), (e) => e instanceof UpstreamError && e.status === 404);
+  await assert.rejects(
+    geocode('Nowhereville', { fetchImpl: f }),
+    (e) => e instanceof UpstreamError && e.status === 404,
+  );
 });
 
 test('fetchAirQuality prefers the hourly series and falls back to the current reading', async () => {
-  const full = await fetchAirQuality({ latitude: 1, longitude: 2 }, { fetchImpl: fakeFetch({ 'air-quality-api': aqOk }) });
+  const full = await fetchAirQuality(
+    { latitude: 1, longitude: 2 },
+    { fetchImpl: fakeFetch({ 'air-quality-api': aqOk }) },
+  );
   assert.equal(full.hourly.length, 24);
   clearCache();
   const partial = json({ current: { time: 't', pm2_5: 77 }, hourly: { pm2_5: [1, 2, null] } });
-  const cur = await fetchAirQuality({ latitude: 1, longitude: 2 }, { fetchImpl: fakeFetch({ 'air-quality-api': partial }) });
+  const cur = await fetchAirQuality(
+    { latitude: 1, longitude: 2 },
+    { fetchImpl: fakeFetch({ 'air-quality-api': partial }) },
+  );
   assert.equal(cur.pm25, 77);
   assert.equal(cur.hourly, undefined);
 });
@@ -53,7 +64,9 @@ test('fetchAirQuality surfaces upstream failures as UpstreamError', async () => 
   const down = fakeFetch({ 'air-quality-api': json({}, 503) });
   await assert.rejects(fetchAirQuality({ latitude: 1, longitude: 2 }, { fetchImpl: down }), UpstreamError);
   clearCache();
-  const boom = async () => { throw new Error('network'); };
+  const boom = async () => {
+    throw new Error('network');
+  };
   await assert.rejects(fetchAirQuality({ latitude: 1, longitude: 2 }, { fetchImpl: boom }), UpstreamError);
   clearCache();
   const empty = fakeFetch({ 'air-quality-api': json({ hourly: {} }) });
@@ -75,7 +88,10 @@ test('sanitizeText strips control chars, prompt tags and over-long input', () =>
   assert.equal(sanitizeText(undefined), '');
 });
 
-const plan = buildPlan({ airQuality: { aqi: 350, location: { name: 'Delhi' } }, profile: { household: { children: true } } });
+const plan = buildPlan({
+  airQuality: { aqi: 350, location: { name: 'Delhi' } },
+  profile: { household: { children: true } },
+});
 
 test('assistant without a key uses the rules engine', async () => {
   const a = createAssistant({ apiKey: '' });
@@ -105,7 +121,12 @@ test('assistant with a key calls Gemini with the key in a header and a grounded 
 test('assistant falls back to rules when Gemini fails', async () => {
   const bad = createAssistant({ apiKey: 'k', fetchImpl: async () => json({}, 500) });
   assert.equal((await bad.narrate(plan)).engine, 'rules');
-  const thrown = createAssistant({ apiKey: 'k', fetchImpl: async () => { throw new Error('offline'); } });
+  const thrown = createAssistant({
+    apiKey: 'k',
+    fetchImpl: async () => {
+      throw new Error('offline');
+    },
+  });
   assert.equal((await thrown.ask(plan, 'mask?')).engine, 'rules');
   const empty = createAssistant({ apiKey: 'k', fetchImpl: async () => json({ candidates: [] }) });
   assert.equal((await empty.narrate(plan)).engine, 'rules');

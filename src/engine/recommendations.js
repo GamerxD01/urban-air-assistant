@@ -8,117 +8,144 @@ const fmtHour = (h) => {
 };
 export const fmtWindow = (w) => `${fmtHour(w.start)}-${fmtHour(w.end)}`;
 
-/** Each item: { id, title, detail, why, tag, when? } - `why` always explains the direct effect of the choice. */
+/**
+ * @typedef {{ id: string, title: string, detail?: string, why: string, tag: string, when?: string, impact?: object }} Item
+ * Every item's `why` explains the direct effect of the choice.
+ */
 
-export function buildRoutine({ airQuality, risk, profile, impact }) {
-  const { band, bestWindow, worstWindow } = airQuality;
-  const { household, lifestyle } = profile;
-  const items = [];
-  const sensitive = risk.sensitiveGroups.length > 0;
+/** Bands from CPCB: 0 good, 1 satisfactory, 2 moderate, 3 poor, 4 very poor, 5 severe. */
+const BAND = Object.freeze({ SATISFACTORY: 1, MODERATE: 2, POOR: 3, VERY_POOR: 4 });
+/** Household risk tiers from risk.js: 3 = high, 4 = very high. */
+const RISK = Object.freeze({ LOW: 1, HIGH: 3, VERY_HIGH: 4 });
+const MINUTES_PER_HOUR = 60;
 
-  if (band.index <= 1 && risk.tier <= 1) {
-    items.push({
-      id: 'normal-day',
-      when: 'All day',
-      title: 'Go about your day normally',
-      detail: `Air is ${band.label.toLowerCase()} (AQI ${airQuality.aqi}). Outdoor play, walks and open windows are fine.`,
-      why: 'At this level the health effect of outdoor exposure is small for most people.',
-      tag: 'outdoors',
-    });
-    return items;
-  }
+const pctDirtier = (worst, best) => Math.round((worst.avg / best.avg - 1) * 100);
+const outdoorDuration = (hours) => (hours >= 1 ? '1 hour' : `${Math.round(hours * MINUTES_PER_HOUR)} minutes`);
 
-  items.push({
-    id: 'outdoor-window',
+/**
+ * Routine rules, checked in order. Each rule decides whether it applies to this household
+ * today and, if so, builds its item. Adding advice means adding a rule, not editing a branch.
+ * @type {{ applies: (ctx: any) => boolean, build: (ctx: any) => Item }[]}
+ */
+const ROUTINE_RULES = [
+  {
+    applies: () => true,
+    build: ({ airQuality: { bestWindow, worstWindow }, impact }) => ({
+      id: 'outdoor-window',
       when: fmtWindow(bestWindow),
-    title: `Do outdoor time at ${fmtWindow(bestWindow)}`,
-    detail: `This is today's cleanest daylight window (about ${bestWindow.avg} µg/m³ PM2.5). Keep it to ${impact.outdoorHoursRecommended >= 1 ? '1 hour' : `${Math.round(impact.outdoorHoursRecommended * 60)} minutes`} and keep it gentle.`,
-    why: `Air at ${fmtWindow(worstWindow)} is about ${Math.round((worstWindow.avg / bestWindow.avg - 1) * 100)}% dirtier, so the same walk delivers that much more pollution to your lungs.`,
-    tag: 'outdoors',
-  });
-
-  if (band.index >= 2) {
-    items.push({
+      title: `Do outdoor time at ${fmtWindow(bestWindow)}`,
+      detail: `This is today's cleanest daylight window (about ${bestWindow.avg} µg/m³ PM2.5). Keep it to ${outdoorDuration(impact.outdoorHoursRecommended)} and keep it gentle.`,
+      why: `Air at ${fmtWindow(worstWindow)} is about ${pctDirtier(worstWindow, bestWindow)}% dirtier, so the same walk delivers that much more pollution to your lungs.`,
+      tag: 'outdoors',
+    }),
+  },
+  {
+    applies: ({ airQuality }) => airQuality.band.index >= BAND.MODERATE,
+    build: ({ airQuality: { worstWindow } }) => ({
       id: 'avoid-peak',
       when: fmtWindow(worstWindow),
       title: `Stay indoors at ${fmtWindow(worstWindow)}`,
       detail: 'Cold air traps smoke and exhaust close to the ground at night and in the early morning.',
       why: 'Move school drop-offs, jogging and vegetable shopping out of this slot where you can.',
       tag: 'outdoors',
-    });
-  }
-
-  if (household.children || risk.tier >= 4) {
-    items.push({
+    }),
+  },
+  {
+    applies: ({ profile, risk }) => profile.household.children || risk.tier >= RISK.VERY_HIGH,
+    build: ({ profile }) => ({
       id: 'kids-play',
       when: 'All day',
-      title: household.children ? 'Keep children\'s active play indoors on bad-air days' : 'Swap hard exercise for indoor activity',
-      detail: 'Skipping outdoor sports and PE-style play is the single most protective step when AQI is very poor or worse.',
+      title: profile.household.children
+        ? "Keep children's active play indoors on bad-air days"
+        : 'Swap hard exercise for indoor activity',
+      detail:
+        'Skipping outdoor sports and PE-style play is the single most protective step when AQI is very poor or worse.',
       why: 'Running multiplies breathing rate by 2-3x, so a short sprint outside can inhale as much smog as hours of sitting.',
       tag: 'outdoors',
-    });
-  }
-
-  if (risk.tier >= 3) {
-    const onCommute = MODES[lifestyle.commute].maskable && lifestyle.commute !== 'work_from_home' ? ' and on your commute' : '';
-    items.push({
+    }),
+  },
+  {
+    applies: ({ risk }) => risk.tier >= RISK.HIGH,
+    build: ({ profile: { lifestyle } }) => ({
       id: 'mask',
       when: 'Whenever outside',
-      title: `Wear a well-fitted N95/FFP2 mask outdoors${onCommute}`,
-      detail: 'Cloth and surgical masks barely stop PM2.5. Pick a respirator with no gaps and replace it when it is damp or soiled.',
+      title: `Wear a well-fitted N95/FFP2 mask outdoors${MODES[lifestyle.commute].maskable ? ' and on your commute' : ''}`,
+      detail:
+        'Cloth and surgical masks barely stop PM2.5. Pick a respirator with no gaps and replace it when it is damp or soiled.',
       why: 'A properly fitted respirator typically cuts the PM2.5 you breathe in by about 80%.',
       tag: 'protection',
-    });
-  }
-
-  if (household.respiratory) {
-    items.push({
+    }),
+  },
+  {
+    applies: ({ profile }) => profile.household.respiratory,
+    build: () => ({
       id: 'medical',
       when: 'If symptoms appear',
       title: 'Keep reliever medication to hand and follow the care plan',
-      detail: 'If breathlessness, wheeze or chest tightness increases, contact your doctor rather than waiting for the air to clear.',
+      detail:
+        'If breathlessness, wheeze or chest tightness increases, contact your doctor rather than waiting for the air to clear.',
       why: 'People with asthma, COPD or heart disease are the first to be hurt by smog spikes.',
       tag: 'protection',
-    });
-  }
-
-  if (household.pregnant || household.elderly) {
-    items.push({
+    }),
+  },
+  {
+    applies: ({ profile }) => profile.household.pregnant || profile.household.elderly,
+    build: () => ({
       id: 'vulnerable',
       when: 'All day',
       title: 'Limit non-essential trips and use indoor exercise',
       detail: 'Prefer indoor stretching, yoga or corridor walks over street walks while air is this poor.',
       why: 'Pregnancy and older age both make the body less able to cope with fine particles.',
       tag: 'protection',
-    });
-  }
-
-  if (household.outdoorWorker && band.index >= 3) {
-    items.push({
+    }),
+  },
+  {
+    applies: ({ profile, airQuality }) => profile.household.outdoorWorker && airQuality.band.index >= BAND.POOR,
+    build: ({ airQuality: { bestWindow } }) => ({
       id: 'outdoor-work',
       when: fmtWindow(bestWindow),
       title: 'Use a respirator and schedule heavy work in the cleanest window',
       detail: `Do physical tasks around ${fmtWindow(bestWindow)} and take breaks indoors with filtered air.`,
       why: 'Heavy work multiplies breathing rate, which multiplies the pollution that reaches the lungs.',
       tag: 'protection',
-    });
-  }
-
-  if (sensitive && band.index >= 4) {
-    items.push({
+    }),
+  },
+  {
+    applies: ({ risk, airQuality }) => risk.sensitiveGroups.length > 0 && airQuality.band.index >= BAND.VERY_POOR,
+    build: () => ({
       id: 'schedule-flex',
       when: 'Worst days',
       title: 'Ask school or work for flexibility on the worst days',
       detail: 'Remote work, indoor assemblies or a later start can all take people off the road in the peak hours.',
       why: 'Avoiding the morning peak is one of the cheapest exposure cuts available.',
       tag: 'protection',
-    });
-  }
+    }),
+  },
+];
 
-  return items;
+/**
+ * @param {{ airQuality: any, risk: any, profile: any, impact: any }} ctx
+ * @returns {Item[]}
+ */
+export function buildRoutine(ctx) {
+  const { airQuality, risk } = ctx;
+  if (airQuality.band.index <= BAND.SATISFACTORY && risk.tier <= RISK.LOW) {
+    return [
+      {
+        id: 'normal-day',
+        when: 'All day',
+        title: 'Go about your day normally',
+        detail: `Air is ${airQuality.band.label.toLowerCase()} (AQI ${airQuality.aqi}). Outdoor play, walks and open windows are fine.`,
+        why: 'At this level the health effect of outdoor exposure is small for most people.',
+        tag: 'outdoors',
+      },
+    ];
+  }
+  return ROUTINE_RULES.filter((rule) => rule.applies(ctx)).map((rule) => rule.build(ctx));
 }
 
-export function buildIndoorHacks({ airQuality, risk, profile }) {
+/** @returns {Item[]} */
+export function buildIndoorHacks({ airQuality, profile }) {
   const { band } = airQuality;
   const { lifestyle } = profile;
   const hacks = [];
@@ -154,8 +181,9 @@ export function buildIndoorHacks({ airQuality, risk, profile }) {
     hacks.push({
       id: 'diy-filter',
       title: 'Build a ~Rs 1,500 box-fan air filter (Corsi-Rosenthal box)',
-      detail: 'Tape four HVAC/MERV 13 filters into a cube around a 20-inch box fan. Run it on low in the main living space.',
-      why: 'This does a purifier\'s job for a fraction of the price and is documented to clean a room quickly.',
+      detail:
+        'Tape four HVAC/MERV 13 filters into a cube around a 20-inch box fan. Run it on low in the main living space.',
+      why: "This does a purifier's job for a fraction of the price and is documented to clean a room quickly.",
       tag: 'indoor',
     });
   }
@@ -164,9 +192,10 @@ export function buildIndoorHacks({ airQuality, risk, profile }) {
     hacks.push({
       id: 'kitchen',
       title: 'Switch on the chimney or exhaust fan before you cook',
-      detail: lifestyle.cooking === 'biomass'
-        ? 'Cook outdoors or in a well-ventilated space and keep children out of the kitchen.'
-        : 'Keep the burner blue, ventilate while cooking and for 10 minutes after.',
+      detail:
+        lifestyle.cooking === 'biomass'
+          ? 'Cook outdoors or in a well-ventilated space and keep children out of the kitchen.'
+          : 'Keep the burner blue, ventilate while cooking and for 10 minutes after.',
       why: 'Cooking is often the largest indoor source of fine particles.',
       tag: 'indoor',
     });
@@ -211,14 +240,21 @@ export function buildIndoorHacks({ airQuality, risk, profile }) {
 }
 
 const SWITCHES = {
-  car: [['public_transport', 'Take the metro or bus'], ['carpool', 'Carpool with a colleague or neighbour']],
-  two_wheeler: [['public_transport', 'Take the metro or bus (and mask up while waiting)'], ['cycle', 'Cycle if your trip is short and traffic is light']],
+  car: [
+    ['public_transport', 'Take the metro or bus'],
+    ['carpool', 'Carpool with a colleague or neighbour'],
+  ],
+  two_wheeler: [
+    ['public_transport', 'Take the metro or bus (and mask up while waiting)'],
+    ['cycle', 'Cycle if your trip is short and traffic is light'],
+  ],
   public_transport: [['walk', 'Walk the first/last mile at the cleanest hour']],
   walk: [],
   cycle: [],
   work_from_home: [],
 };
 
+/** @returns {Item[]} */
 export function buildSustainable({ airQuality, risk, profile }) {
   const { lifestyle } = profile;
   const picks = [];
@@ -230,11 +266,12 @@ export function buildSustainable({ airQuality, risk, profile }) {
     const impact = commuteSwitchImpact(ctx, mode);
     if (impact.co2SavedKgPerWeek <= 0) continue;
     const personal = impact.personalInhalationChangeMaskedPct;
-    const personalNote = personal === 0
-      ? 'your own exposure stays the same'
-      : personal < 0
-      ? `your own PM2.5 intake on the commute also drops ${Math.abs(personal)}%${impact.personalInhalationChangeMaskedPct !== impact.personalInhalationChangePct ? ' (with a mask)' : ''}`
-      : `your own commute intake rises ${personal}% (more time outdoors), so pair it with a mask and avoid peak hours`;
+    const personalNote =
+      personal === 0
+        ? 'your own exposure stays the same'
+        : personal < 0
+          ? `your own PM2.5 intake on the commute also drops ${Math.abs(personal)}%${impact.personalInhalationChangeMaskedPct !== impact.personalInhalationChangePct ? ' (with a mask)' : ''}`
+          : `your own commute intake rises ${personal}% (more time outdoors), so pair it with a mask and avoid peak hours`;
     picks.push({
       id: `switch-${mode}`,
       title,
@@ -269,7 +306,7 @@ export function buildSustainable({ airQuality, risk, profile }) {
     {
       id: 'no-burning',
       title: 'Never burn leaves, waste or garbage - and report it',
-      detail: 'Use your city\'s pollution-complaint app or helpline, and organise a composting drive.',
+      detail: "Use your city's pollution-complaint app or helpline, and organise a composting drive.",
       why: 'Open burning pushes dense smoke straight into the neighbourhood.',
       tag: 'community',
     },

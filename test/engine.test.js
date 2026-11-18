@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pm25ToAqi, aqiToPm25, bandForPm25, normalizeAirQuality, findWindow, synthesizeHourly } from '../src/engine/aqi.js';
+import {
+  pm25ToAqi,
+  aqiToPm25,
+  bandForPm25,
+  normalizeAirQuality,
+  findWindow,
+  synthesizeHourly,
+} from '../src/engine/aqi.js';
 import { normalizeProfile } from '../src/engine/profile.js';
 import { assessRisk } from '../src/engine/risk.js';
 import { computeImpact, commuteSwitchImpact } from '../src/engine/impact.js';
@@ -68,18 +75,32 @@ test('normalizeProfile whitelists values and reports errors', () => {
 
   assert.equal(normalizeProfile(null).ok, true);
   assert.equal(normalizeProfile('nonsense').ok, true);
-  assert.equal(normalizeProfile({ lifestyle: { commute: 'work_from_home', commuteKm: 20 } }).value.lifestyle.commuteKm, 0);
+  assert.equal(
+    normalizeProfile({ lifestyle: { commute: 'work_from_home', commuteKm: 20 } }).value.lifestyle.commuteKm,
+    0,
+  );
 });
 
 test('risk rises with vulnerability but never when the air is clean', () => {
   assert.equal(assessRisk(0, { ...baseHousehold, respiratory: true, children: true }).tier, 0);
   assert.equal(assessRisk(2, baseHousehold).tier, 2);
   assert.equal(assessRisk(2, { ...baseHousehold, children: true }).tier, 3);
-  assert.equal(assessRisk(3, { ...baseHousehold, respiratory: true, children: true, elderly: true }).tier, 5, 'uplift capped at two tiers');
+  assert.equal(
+    assessRisk(3, { ...baseHousehold, respiratory: true, children: true, elderly: true }).tier,
+    5,
+    'uplift capped at two tiers',
+  );
   assert.equal(assessRisk(5, { ...baseHousehold, respiratory: true }).tier, 5, 'never exceeds the top tier');
 });
 
-const lifestyle = { commute: 'two_wheeler', commuteKm: 10, cooking: 'lpg', heating: 'none', homeType: 'apartment', hasPurifier: false };
+const lifestyle = {
+  commute: 'two_wheeler',
+  commuteKm: 10,
+  cooking: 'lpg',
+  heating: 'none',
+  homeType: 'apartment',
+  hasPurifier: false,
+};
 
 function impactFor(aqi, household = baseHousehold, ls = lifestyle) {
   const airQuality = normalizeAirQuality({ aqi });
@@ -104,7 +125,9 @@ test('impact: severe air gives a large, positive, internally consistent reductio
 
 test('impact: owning a purifier makes the indoor lever stronger', () => {
   const diy = impactFor(350).levers.find((l) => l.id === 'indoorUpgrade');
-  const hepa = impactFor(350, baseHousehold, { ...lifestyle, hasPurifier: true }).levers.find((l) => l.id === 'indoorUpgrade');
+  const hepa = impactFor(350, baseHousehold, { ...lifestyle, hasPurifier: true }).levers.find(
+    (l) => l.id === 'indoorUpgrade',
+  );
   assert.ok(hepa.savedUg > diy.savedUg);
 });
 
@@ -116,7 +139,10 @@ test('impact: working from home removes commute exposure', () => {
 
 test('commuteSwitchImpact reports CO2 saved and personal exposure change', () => {
   const airQuality = normalizeAirQuality({ aqi: 300 });
-  const r = commuteSwitchImpact({ airQuality, lifestyle: { ...lifestyle, commute: 'car' }, riskTier: 4 }, 'public_transport');
+  const r = commuteSwitchImpact(
+    { airQuality, lifestyle: { ...lifestyle, commute: 'car' }, riskTier: 4 },
+    'public_transport',
+  );
   assert.ok(r.co2SavedKgPerWeek > 0);
   assert.equal(typeof r.personalInhalationChangePct, 'number');
 });
@@ -124,7 +150,10 @@ test('commuteSwitchImpact reports CO2 saved and personal exposure change', () =>
 test('buildPlan: severe plan for a vulnerable household is complete and actionable', () => {
   const plan = buildPlan({
     airQuality: { aqi: 380, location: { name: 'Lucknow' } },
-    profile: { household: { children: true, respiratory: true }, lifestyle: { commute: 'car', commuteKm: 12, cooking: 'biomass', heating: 'wood_coal' } },
+    profile: {
+      household: { children: true, respiratory: true },
+      lifestyle: { commute: 'car', commuteKm: 12, cooking: 'biomass', heating: 'wood_coal' },
+    },
   });
   assert.equal(plan.risk.id, 'severe');
   const ids = (xs) => xs.map((x) => x.id);
@@ -145,7 +174,10 @@ test('buildPlan: severe plan for a vulnerable household is complete and actionab
 test('buildPlan: clean air yields a calm, minimal plan', () => {
   const plan = buildPlan({ airQuality: { pm25: 15 }, profile: {} });
   assert.equal(plan.risk.tier, 0);
-  assert.deepEqual(plan.routine.map((r) => r.id), ['normal-day']);
+  assert.deepEqual(
+    plan.routine.map((r) => r.id),
+    ['normal-day'],
+  );
   assert.equal(plan.indoor[0].id, 'ventilate');
   assert.match(plan.summary, /No extra precautions/);
 });
@@ -158,7 +190,10 @@ test('buildPlan: purifier owners are told to use it, not to build one', () => {
 });
 
 test('buildPlan: does not suggest cycling when the air is severe', () => {
-  const plan = buildPlan({ airQuality: { aqi: 450 }, profile: { lifestyle: { commute: 'two_wheeler', commuteKm: 3 } } });
+  const plan = buildPlan({
+    airQuality: { aqi: 450 },
+    profile: { lifestyle: { commute: 'two_wheeler', commuteKm: 3 } },
+  });
   assert.ok(!plan.sustainable.some((s) => s.id === 'switch-cycle'));
 });
 
@@ -175,4 +210,21 @@ test('buildPlan: car owners get a carpool option that halves emissions without c
   assert.equal(carpool.impact.personalInhalationChangePct, 0);
   assert.equal(carpool.impact.co2SavedKgPerWeek, 8.5);
   assert.match(carpool.detail, /stays the same/);
+});
+
+test('buildPlan: pregnancy, elderly and outdoor work add their own protections', () => {
+  const plan = buildPlan({
+    airQuality: { aqi: 320 },
+    profile: { household: { pregnant: true, elderly: true, outdoorWorker: true } },
+  });
+  const ids = plan.routine.map((r) => r.id);
+  assert.ok(ids.includes('vulnerable'));
+  assert.ok(ids.includes('outdoor-work'));
+  assert.ok(ids.includes('schedule-flex'));
+  for (const item of plan.routine) assert.ok(item.when, `${item.id} says when to do it`);
+});
+
+test('buildPlan: outdoor workers get no work-scheduling item when air is only moderate', () => {
+  const plan = buildPlan({ airQuality: { aqi: 150 }, profile: { household: { outdoorWorker: true } } });
+  assert.ok(!plan.routine.some((r) => r.id === 'outdoor-work'));
 });

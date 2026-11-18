@@ -4,6 +4,8 @@
  * and the winter sun fades to a pale disc - the way smog actually looks from a rooftop.
  */
 
+import { lerp, mixColor } from './format.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const W = 1440;
 const H = 420;
@@ -79,12 +81,16 @@ function trees(r, y0) {
   return d;
 }
 
-const lerp = (a, b, t) => a + (b - a) * t;
-const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
-const mix = (a, b, t) => `rgb(${hex(a).map((v, i) => Math.round(lerp(v, hex(b)[i], t))).join(',')})`;
+const mix = mixColor;
 
 export function createHorizon(container) {
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMax slice', class: 'horizon-svg', 'aria-hidden': 'true', focusable: 'false' });
+  const svg = el('svg', {
+    viewBox: `0 0 ${W} ${H}`,
+    preserveAspectRatio: 'xMidYMax slice',
+    class: 'horizon-svg',
+    'aria-hidden': 'true',
+    focusable: 'false',
+  });
   const defs = el('defs', {}, svg);
   const grad = el('linearGradient', { id: 'sky', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
   const stopTop = el('stop', { offset: '0' }, grad);
@@ -98,11 +104,30 @@ export function createHorizon(container) {
   const sun = el('circle', { cx: 1080, cy: 150, r: 44, class: 'fade sun' }, svg);
 
   const r = rng(26);
-  const far = el('path', { class: 'layer far', d: `${blocks(r, { y0: 330, minH: 60, maxH: 170, minW: 26, maxW: 70, gap: 18 })} ${pylon(250, 330, 150)} ${pylon(1300, 330, 130)}` }, svg);
+  const far = el(
+    'path',
+    {
+      class: 'layer far',
+      d: `${blocks(r, { y0: 330, minH: 60, maxH: 170, minW: 26, maxW: 70, gap: 18 })} ${pylon(250, 330, 150)} ${pylon(1300, 330, 130)}`,
+    },
+    svg,
+  );
   const hazeFar = el('rect', { width: W, height: H, class: 'fade haze' }, svg);
 
   el('path', { class: 'layer mid', d: blocks(r, { y0: 360, minH: 30, maxH: 100, minW: 40, maxW: 110, gap: 30 }) }, svg);
-  el('path', { class: 'layer mid', d: [dome(560, 300, 46), minaret(480, 360, 150), minaret(640, 360, 150), 'M 470 360 L 470 300 L 650 300 L 650 360 Z'].join(' ') }, svg);
+  el(
+    'path',
+    {
+      class: 'layer mid',
+      d: [
+        dome(560, 300, 46),
+        minaret(480, 360, 150),
+        minaret(640, 360, 150),
+        'M 470 360 L 470 300 L 650 300 L 650 360 Z',
+      ].join(' '),
+    },
+    svg,
+  );
   el('path', { class: 'layer mid', 'fill-rule': 'evenodd', d: gate(900, 360, 150, 120) }, svg);
   const hazeMid = el('rect', { width: W, height: H, class: 'fade haze' }, svg);
 

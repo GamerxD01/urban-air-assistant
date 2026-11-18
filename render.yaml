@@ -8,9 +8,9 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: '22'
       - key: TRUST_PROXY
-        value: "1"
+        value: '1'
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
       - key: GEMINI_API_KEY

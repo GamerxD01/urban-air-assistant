@@ -1,29 +1,70 @@
-/** Small, dependency-free hardening middleware: security headers and a fixed-window rate limiter. */
+/** Dependency-free hardening middleware: headers, request guards and rate limiting. */
+
+import { HSTS_MAX_AGE_SECONDS } from '../config.js';
+import { Forbidden, UnsupportedMediaType } from '../errors.js';
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
 
 export function securityHeaders(req, res, next) {
   res.set({
-    'Content-Security-Policy': [
-      "default-src 'self'",
-      "script-src 'self'",
-      "style-src 'self'",
-      "img-src 'self' data:",
-      "connect-src 'self'",
-      "base-uri 'none'",
-      "form-action 'self'",
-      "frame-ancestors 'none'",
-    ].join('; '),
+    'Content-Security-Policy': CSP,
+    'Strict-Transport-Security': `max-age=${HSTS_MAX_AGE_SECONDS}; includeSubDomains`,
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'X-Frame-Options': 'DENY',
     'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-origin',
   });
   res.removeHeader('X-Powered-By');
   next();
 }
 
+/** API responses are personalised; never let a shared cache store them. */
+export function noStore(req, res, next) {
+  res.set('Cache-Control', 'no-store');
+  next();
+}
+
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 /**
- * @param {{ windowMs?: number, max?: number, now?: () => number }} opts
+ * Rejects cross-site browser requests to state-changing or paid endpoints.
+ * Requests without an Origin header (server-to-server, curl, tests) are allowed.
+ */
+export function sameOriginOnly(req, res, next) {
+  if (!UNSAFE_METHODS.has(req.method)) return next();
+  const origin = req.get('origin');
+  if (!origin) return next();
+  let originHost;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return next(new Forbidden('Cross-site requests are not allowed.'));
+  }
+  return originHost === req.get('host') ? next() : next(new Forbidden('Cross-site requests are not allowed.'));
+}
+
+/** Write endpoints only accept JSON, which also blocks simple form-encoded CSRF posts. */
+export function requireJson(req, res, next) {
+  if (!UNSAFE_METHODS.has(req.method) || req.is('application/json')) return next();
+  return next(new UnsupportedMediaType('Send the request as application/json.'));
+}
+
+/**
+ * Fixed-window, per-IP rate limiter with an in-memory store that sweeps itself.
+ * @param {{ windowMs?: number, max?: number, now?: () => number }} [opts]
  */
 export function rateLimit({ windowMs = 60_000, max = 30, now = Date.now } = {}) {
   const hits = new Map();

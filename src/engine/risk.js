@@ -37,7 +37,9 @@ export function assessRisk(bandIndex, household) {
     sensitiveGroups: groups,
     reasons: [
       `Outdoor air sits in band ${bandIndex} on a 0-5 scale (0 = good, 5 = severe).`,
-      ...(applied > 0 ? [`Raised by ${applied} tier${applied > 1 ? 's' : ''} because the household includes ${groups.join(', ')}.`] : []),
+      ...(applied > 0
+        ? [`Raised by ${applied} tier${applied > 1 ? 's' : ''} because the household includes ${groups.join(', ')}.`]
+        : []),
     ],
   };
 }
