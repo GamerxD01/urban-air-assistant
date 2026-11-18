@@ -1,8 +1,16 @@
+/**
+ * Turns errors into safe JSON responses.
+ * @module middleware/errorHandler
+ */
 import { HttpError, UpstreamError } from '../errors.js';
 
 const MANUAL_HINT = ' You can still enter the AQI shown on your phone manually.';
 
-/** JSON 404 for unknown API routes. */
+/**
+ * JSON 404 for unknown API routes.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 export function notFound(req, res) {
   res.status(404).json({ error: 'Not found.' });
 }

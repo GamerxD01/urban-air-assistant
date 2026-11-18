@@ -2,22 +2,26 @@
  * The haze horizon: a city skyline drawn in three depth layers. Smog is rendered as
  * semi-transparent haze between the layers, so as PM2.5 rises the far city disappears first
  * and the winter sun fades to a pale disc - the way smog actually looks from a rooftop.
+ * @module horizon
  */
-
+import { svg as el } from './dom.js';
 import { lerp, mixColor } from './format.js';
 
-const NS = 'http://www.w3.org/2000/svg';
 const W = 1440;
 const H = 420;
+/** PM2.5 (µg/m³) at which the haze is at its thickest. */
+const FULL_SMOG_PM25 = 260;
+/** Haze level shown before any reading is known. */
+const UNKNOWN_SMOG_LEVEL = 0.35;
 
-const el = (tag, attrs = {}, parent) => {
-  const node = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
-  if (parent) parent.append(node);
-  return node;
-};
+/** @typedef {() => number} Random returns a number in [0, 1) */
+/** @typedef {{ setAir: (pm25?: number) => void }} Horizon */
 
-/** Small deterministic PRNG so the skyline is identical on every load. */
+/**
+ * Small deterministic PRNG (LCG) so the skyline is identical on every load.
+ * @param {number} seed
+ * @returns {Random}
+ */
 function rng(seed) {
   let s = seed >>> 0;
   return () => {
@@ -26,6 +30,12 @@ function rng(seed) {
   };
 }
 
+/**
+ * A row of rooftops, some with water tanks, as one SVG path.
+ * @param {Random} r
+ * @param {{ y0: number, minH: number, maxH: number, minW: number, maxW: number, gap: number }} shape
+ * @returns {string}
+ */
 function blocks(r, { y0, minH, maxH, minW, maxW, gap }) {
   let x = -20;
   let d = `M -20 ${H}`;
@@ -46,6 +56,12 @@ function blocks(r, { y0, minH, maxH, minW, maxW, gap }) {
   return `${d} L ${W + 20} ${H} Z`;
 }
 
+/**
+ * @param {number} cx
+ * @param {number} base
+ * @param {number} r
+ * @returns {string} onion dome path
+ */
 function dome(cx, base, r) {
   // onion dome on a drum, with a finial
   const drum = r * 1.1;
@@ -56,10 +72,24 @@ function dome(cx, base, r) {
   ].join(' ');
 }
 
+/**
+ * @param {number} cx
+ * @param {number} base
+ * @param {number} h
+ * @param {number} [w]
+ * @returns {string} minaret path
+ */
 function minaret(cx, base, h, w = 9) {
   return `M ${cx - w / 2} ${base} L ${cx - w / 2} ${base - h} L ${cx - w * 0.9} ${base - h - 4} L ${cx + w * 0.9} ${base - h - 4} L ${cx + w / 2} ${base - h} L ${cx + w / 2} ${base} Z M ${cx - w * 0.6} ${base - h - 4} C ${cx - w * 0.6} ${base - h - 14}, ${cx} ${base - h - 18}, ${cx} ${base - h - 22} C ${cx} ${base - h - 18}, ${cx + w * 0.6} ${base - h - 14}, ${cx + w * 0.6} ${base - h - 4} Z`;
 }
 
+/**
+ * @param {number} cx
+ * @param {number} base
+ * @param {number} w
+ * @param {number} h
+ * @returns {string} gateway path with the arch cut out (use evenodd fill)
+ */
 function gate(cx, base, w, h) {
   // a monumental gateway with a pointed arch cut out (evenodd fill)
   const aw = w * 0.36;
@@ -68,10 +98,21 @@ function gate(cx, base, w, h) {
     M ${cx - aw} ${base} L ${cx - aw} ${base - ah * 0.65} C ${cx - aw} ${base - ah}, ${cx - aw * 0.2} ${base - ah}, ${cx} ${base - ah * 1.12} C ${cx + aw * 0.2} ${base - ah}, ${cx + aw} ${base - ah}, ${cx + aw} ${base - ah * 0.65} L ${cx + aw} ${base} Z`;
 }
 
+/**
+ * @param {number} x
+ * @param {number} base
+ * @param {number} h
+ * @returns {string} power pylon path
+ */
 function pylon(x, base, h) {
   return `M ${x - 16} ${base} L ${x - 3} ${base - h} L ${x + 3} ${base - h} L ${x + 16} ${base} L ${x + 12} ${base} L ${x + 1} ${base - h + 14} L ${x - 1} ${base - h + 14} L ${x - 12} ${base} Z M ${x - 22} ${base - h + 22} L ${x + 22} ${base - h + 22} L ${x + 22} ${base - h + 26} L ${x - 22} ${base - h + 26} Z`;
 }
 
+/**
+ * @param {Random} r
+ * @param {number} y0 ground line
+ * @returns {string} a row of tree crowns
+ */
 function trees(r, y0) {
   let d = '';
   for (let x = 0; x < W; x += 40 + r() * 90) {
@@ -83,6 +124,11 @@ function trees(r, y0) {
 
 const mix = mixColor;
 
+/**
+ * Draws the skyline into `container` and returns a handle to update its haze.
+ * @param {HTMLElement} container
+ * @returns {Horizon}
+ */
 export function createHorizon(container) {
   const svg = el('svg', {
     viewBox: `0 0 ${W} ${H}`,
@@ -104,7 +150,7 @@ export function createHorizon(container) {
   const sun = el('circle', { cx: 1080, cy: 150, r: 44, class: 'fade sun' }, svg);
 
   const r = rng(26);
-  const far = el(
+  el(
     'path',
     {
       class: 'layer far',
@@ -135,24 +181,23 @@ export function createHorizon(container) {
   const hazeNear = el('rect', { width: W, height: H, class: 'fade haze' }, svg);
   // street level stays solid so the headline below always sits on the same dark ground
   el('rect', { class: 'layer near', x: -20, y: 391, width: W + 40, height: H - 391 }, svg);
-  void far;
 
   container.replaceChildren(svg);
 
-  /** @param {number} pm25 daily mean PM2.5; undefined = neutral "unknown" sky */
+  /** @param {number} [pm25] daily mean PM2.5; omitted = neutral "unknown" sky */
   function setAir(pm25) {
-    const s = pm25 === undefined ? 0.35 : Math.min(1, Math.max(0, pm25 / 260));
+    const s = pm25 === undefined ? UNKNOWN_SMOG_LEVEL : Math.min(1, Math.max(0, pm25 / FULL_SMOG_PM25));
     stopTop.style.stopColor = mix('#5f9fd3', '#8a826f', s);
     stopBottom.style.stopColor = mix('#d6e8f3', '#d2c09a', s);
     hazeFar.style.fill = hazeMid.style.fill = hazeNear.style.fill = mix('#dfe9ee', '#cdbb94', s);
-    hazeFar.style.opacity = lerp(0.12, 0.9, s);
-    hazeMid.style.opacity = lerp(0.04, 0.62, s);
-    hazeNear.style.opacity = lerp(0, 0.18, s);
+    hazeFar.style.opacity = String(lerp(0.12, 0.9, s));
+    hazeMid.style.opacity = String(lerp(0.04, 0.62, s));
+    hazeNear.style.opacity = String(lerp(0, 0.18, s));
     sun.style.fill = mix('#fff2c2', '#f1d7aa', s);
-    sun.style.opacity = lerp(1, 0.55, s);
-    sunGlow.style.opacity = lerp(1, 0.08, s);
+    sun.style.opacity = String(lerp(1, 0.55, s));
+    sunGlow.style.opacity = String(lerp(1, 0.08, s));
   }
 
-  setAir(undefined);
+  setAir();
   return { setAir };
 }

@@ -1,0 +1,15 @@
+node_modules
+coverage
+test
+docs
+.git
+.github
+.env
+*.md
+eslint.config.js
+tsconfig.json
+.prettierrc.json
+.prettierignore
+vercel.json
+render.yaml
+api

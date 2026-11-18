@@ -1,3 +1,7 @@
+/**
+ * Request body → validated input → live air quality → plan.
+ * @module services/planService
+ */
 import { buildPlan } from '../engine/plan.js';
 import { BadRequest, UpstreamError } from '../errors.js';
 import { parseAirInput, requireObject } from '../validation.js';

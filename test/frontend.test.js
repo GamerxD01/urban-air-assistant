@@ -9,7 +9,7 @@ import {
   toPlanRequest,
   validatePlanRequest,
   BAND_VARS,
-} from '../public/format.js';
+} from '../public/js/format.js';
 
 test('bandOf follows the CPCB PM2.5 edges', () => {
   assert.deepEqual([0, 30, 31, 60, 90, 120, 121, 250, 251, 999].map(bandOf), [0, 0, 1, 1, 2, 3, 4, 4, 5, 5]);

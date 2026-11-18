@@ -1,3 +1,7 @@
+/**
+ * Normalisation of untrusted text.
+ * @module sanitize
+ */
 import { LIMITS } from './config.js';
 
 /**

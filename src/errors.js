@@ -1,6 +1,7 @@
 /**
  * Error types that map to HTTP responses. Anything that is not an HttpError is treated as
  * an unexpected bug and answered with a generic 500, so internals never leak to clients.
+ * @module errors
  */
 
 export class HttpError extends Error {

@@ -1,3 +1,7 @@
+/**
+ * Request parsing and whitelisting: everything a client sends is checked here before use.
+ * @module validation
+ */
 import { LIMITS } from './config.js';
 import { BadRequest } from './errors.js';
 import { sanitizeText } from './sanitize.js';

@@ -1,6 +1,7 @@
 /**
  * Pure, DOM-free helpers shared by the UI modules. Kept separate so they can be unit-tested
  * in Node (see test/frontend.test.js).
+ * @module format
  */
 
 /** CSS custom properties holding the CPCB band colours, indexed by band 0 (good) to 5 (severe). */
@@ -9,6 +10,18 @@ export const BAND_VARS = Object.freeze(['--b0', '--b1', '--b2', '--b3', '--b4', 
 /** Upper PM2.5 edge (µg/m³) of each CPCB band except the last. */
 const PM_EDGES = Object.freeze([30, 60, 90, 120, 250]);
 const SEVERE_BAND = PM_EDGES.length;
+/** AQI scale shown to users. */
+export const MAX_AQI_INPUT = 500;
+
+/**
+ * How much dirtier the worst window is than the best, as a whole percentage.
+ * @param {{ avg: number }} worst
+ * @param {{ avg: number }} best
+ * @returns {number}
+ */
+export function pctDirtier(worst, best) {
+  return best.avg > 0 ? Math.round((worst.avg / best.avg - 1) * 100) : 0;
+}
 
 /**
  * @param {number} pm25
@@ -36,7 +49,13 @@ export function timeSpan(window) {
   return `from ${hourLabel(window.start)} to ${hourLabel(window.end)}`;
 }
 
-/** @param {number} a @param {number} b @param {number} t */
+/**
+ * Linear interpolation.
+ * @param {number} a
+ * @param {number} b
+ * @param {number} t 0..1
+ * @returns {number}
+ */
 export const lerp = (a, b, t) => a + (b - a) * t;
 
 /** @param {string} hex "#rrggbb" @returns {number[]} */
@@ -59,12 +78,21 @@ export function mixColor(from, to, t) {
 const HOUSEHOLD_FIELDS = Object.freeze(['children', 'elderly', 'respiratory', 'pregnant', 'outdoorWorker']);
 
 /**
+ * @typedef {object} PlanRequest Body of POST /api/plan.
+ * @property {string} [city]
+ * @property {number} [aqi]
+ * @property {{ household: Record<string, boolean>, lifestyle: Record<string, string | boolean | null> }} profile
+ */
+
+/**
  * Builds the /api/plan request body from form values.
  * @param {(name: string) => string | null} get value of a named field (checkboxes give "on" or null)
- * @returns {{ city?: string, aqi?: number, profile: object }}
+ * @returns {PlanRequest}
  */
 export function toPlanRequest(get) {
+  /** @param {string} name */
   const isOn = (name) => get(name) === 'on';
+  /** @type {PlanRequest} */
   const request = {
     profile: {
       household: Object.fromEntries(HOUSEHOLD_FIELDS.map((f) => [f, isOn(f)])),
@@ -93,7 +121,7 @@ export function validatePlanRequest(request) {
   if (!request.city && request.aqi === undefined) {
     return { field: 'city', message: 'Type a city, or open "Enter the AQI from your phone instead".' };
   }
-  if (request.aqi !== undefined && !(request.aqi >= 0 && request.aqi <= 500)) {
+  if (request.aqi !== undefined && !(request.aqi >= 0 && request.aqi <= MAX_AQI_INPUT)) {
     return { field: 'aqi', message: 'The AQI needs to be a number from 0 to 500.' };
   }
   return null;

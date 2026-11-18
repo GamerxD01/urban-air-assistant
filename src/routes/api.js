@@ -1,3 +1,7 @@
+/**
+ * JSON API: /api/health, /api/plan and /api/ask.
+ * @module routes/api
+ */
 import express from 'express';
 import { RATE_LIMITS } from '../config.js';
 import { noStore, rateLimit, requireJson, sameOriginOnly } from '../middleware/security.js';
@@ -6,15 +10,19 @@ import { parseHistory, parseQuestion } from '../validation.js';
 /**
  * Wraps an async handler so rejected promises reach the error middleware.
  * @param {(req: import('express').Request, res: import('express').Response) => Promise<unknown>} fn
+ * @returns {import('express').RequestHandler}
  */
-const handle = (fn) => (req, res, next) => fn(req, res).catch(next);
+const handle = (fn) => (req, res, next) => {
+  fn(req, res).catch(next);
+};
 
 /**
  * @param {{
- *   assistant: ReturnType<typeof import('../services/llm.js').createAssistant>,
+ *   assistant: import('../services/llm.js').Assistant,
  *   planService: ReturnType<typeof import('../services/planService.js').createPlanService>,
- *   rateLimits?: { api?: object, genai?: object },
+ *   rateLimits?: { api?: { windowMs?: number, max?: number }, genai?: { windowMs?: number, max?: number } },
  * }} deps
+ * @returns {import('express').Router}
  */
 export function createApiRouter({ assistant, planService, rateLimits = {} }) {
   const router = express.Router();

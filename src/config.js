@@ -1,6 +1,7 @@
 /**
  * Every tunable limit in one place, so behaviour can be reviewed and changed without
  * hunting for magic numbers across modules.
+ * @module config
  */
 
 /** Input size limits for anything a client can send. */

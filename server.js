@@ -1,3 +1,8 @@
+/**
+ * Entry point for local and long-running hosting (Render, Cloud Run, Docker).
+ * On Vercel the same app is exported and wrapped by api/index.js.
+ * @module server
+ */
 import { createApp } from './src/createApp.js';
 import { createAssistant } from './src/services/llm.js';
 

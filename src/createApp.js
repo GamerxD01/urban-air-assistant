@@ -1,3 +1,7 @@
+/**
+ * Composition root for the HTTP app.
+ * @module createApp
+ */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';

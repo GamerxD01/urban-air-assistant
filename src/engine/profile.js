@@ -1,30 +1,31 @@
 /**
  * Validation and normalisation of the household profile. Everything the user can send is
  * whitelisted here, so the rest of the engine can trust its inputs.
+ * @module engine/profile
  */
+import { round1 } from './math.js';
 
-export const COMMUTE_MODES = ['walk', 'cycle', 'two_wheeler', 'car', 'public_transport', 'work_from_home'];
-export const COOKING_FUELS = ['lpg', 'png', 'induction', 'biomass'];
-export const HEATING_TYPES = ['none', 'electric', 'gas', 'wood_coal'];
-export const HOME_TYPES = ['apartment', 'house'];
+/** @typedef {import('../types.js').Profile} Profile */
+/** @typedef {import('../types.js').Household} Household */
+/** @typedef {import('../types.js').CommuteMode} CommuteMode */
+
+/** @type {readonly CommuteMode[]} */
+export const COMMUTE_MODES = Object.freeze([
+  'walk',
+  'cycle',
+  'two_wheeler',
+  'car',
+  'public_transport',
+  'work_from_home',
+]);
+export const COOKING_FUELS = Object.freeze(['lpg', 'png', 'induction', 'biomass']);
+export const HEATING_TYPES = Object.freeze(['none', 'electric', 'gas', 'wood_coal']);
+export const HOME_TYPES = Object.freeze(['apartment', 'house']);
 
 const MAX_COMMUTE_KM = 80;
+const HOUSEHOLD_KEYS = /** @type {const} */ (['children', 'elderly', 'respiratory', 'pregnant', 'outdoorWorker']);
 
-const asBool = (v) => v === true || v === 'true';
-
-/**
- * @param {any} value raw input
- * @param {{ field: string, allowed: string[], fallback: string }} spec
- * @param {string[]} errors collects a message when the value is not allowed
- * @returns {string}
- */
-function pickEnum(value, { field, allowed, fallback }, errors) {
-  if (value === undefined || value === null || value === '') return fallback;
-  if (allowed.includes(value)) return value;
-  errors.push(`${field} must be one of: ${allowed.join(', ')}`);
-  return fallback;
-}
-
+/** @type {Readonly<Profile>} */
 export const DEFAULT_PROFILE = Object.freeze({
   household: { children: false, elderly: false, respiratory: false, pregnant: false, outdoorWorker: false },
   lifestyle: {
@@ -38,60 +39,98 @@ export const DEFAULT_PROFILE = Object.freeze({
 });
 
 /**
- * @returns {{ ok: boolean, value: typeof DEFAULT_PROFILE, errors: string[] }}
+ * Accepts real booleans and the string "true" (form posts); anything else is false.
+ * @param {unknown} v
+ * @returns {boolean}
  */
-export function normalizeProfile(raw) {
-  const errors = [];
-  const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const hh = input.household && typeof input.household === 'object' ? input.household : {};
-  const ls = input.lifestyle && typeof input.lifestyle === 'object' ? input.lifestyle : {};
+const asBool = (v) => v === true || v === 'true';
 
-  const household = {
-    children: asBool(hh.children),
-    elderly: asBool(hh.elderly),
-    respiratory: asBool(hh.respiratory),
-    pregnant: asBool(hh.pregnant),
-    outdoorWorker: asBool(hh.outdoorWorker),
-  };
+/**
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+const asRecord = (value) =>
+  value && typeof value === 'object' && !Array.isArray(value) ? /** @type {Record<string, unknown>} */ (value) : {};
 
-  const commute = pickEnum(
-    ls.commute,
-    { field: 'commute', allowed: COMMUTE_MODES, fallback: DEFAULT_PROFILE.lifestyle.commute },
-    errors,
-  );
-  let commuteKm =
-    ls.commuteKm === undefined || ls.commuteKm === '' ? DEFAULT_PROFILE.lifestyle.commuteKm : Number(ls.commuteKm);
-  if (!Number.isFinite(commuteKm) || commuteKm < 0 || commuteKm > MAX_COMMUTE_KM) {
-    errors.push(`commuteKm must be a number between 0 and ${MAX_COMMUTE_KM}`);
-    commuteKm = DEFAULT_PROFILE.lifestyle.commuteKm;
-  }
-  if (commute === 'work_from_home') commuteKm = 0;
-
-  const lifestyle = {
-    commute,
-    commuteKm: Math.round(commuteKm * 10) / 10,
-    cooking: pickEnum(
-      ls.cooking,
-      { field: 'cooking', allowed: COOKING_FUELS, fallback: DEFAULT_PROFILE.lifestyle.cooking },
-      errors,
-    ),
-    heating: pickEnum(
-      ls.heating,
-      { field: 'heating', allowed: HEATING_TYPES, fallback: DEFAULT_PROFILE.lifestyle.heating },
-      errors,
-    ),
-    homeType: pickEnum(
-      ls.homeType,
-      { field: 'homeType', allowed: HOME_TYPES, fallback: DEFAULT_PROFILE.lifestyle.homeType },
-      errors,
-    ),
-    hasPurifier: asBool(ls.hasPurifier),
-  };
-
-  return { ok: errors.length === 0, value: { household, lifestyle }, errors };
+/**
+ * @template {string} T
+ * @param {unknown} value raw input
+ * @param {{ field: string, allowed: readonly T[], fallback: T }} spec
+ * @param {string[]} errors collects a message when the value is not allowed
+ * @returns {T}
+ */
+function pickEnum(value, { field, allowed, fallback }, errors) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (allowed.includes(/** @type {T} */ (value))) return /** @type {T} */ (value);
+  errors.push(`${field} must be one of: ${allowed.join(', ')}`);
+  return fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @param {CommuteMode} commute
+ * @param {string[]} errors
+ * @returns {number} one-way distance in km
+ */
+function pickCommuteKm(value, commute, errors) {
+  if (commute === 'work_from_home') return 0;
+  if (value === undefined || value === '') return DEFAULT_PROFILE.lifestyle.commuteKm;
+  const km = Number(value);
+  if (!Number.isFinite(km) || km < 0 || km > MAX_COMMUTE_KM) {
+    errors.push(`commuteKm must be a number between 0 and ${MAX_COMMUTE_KM}`);
+    return DEFAULT_PROFILE.lifestyle.commuteKm;
+  }
+  return round1(km);
+}
+
+/**
+ * Whitelists a raw profile; invalid values fall back to safe defaults and are reported.
+ * @param {unknown} raw
+ * @returns {{ ok: boolean, value: Profile, errors: string[] }}
+ */
+export function normalizeProfile(raw) {
+  /** @type {string[]} */
+  const errors = [];
+  const input = asRecord(raw);
+  const hh = asRecord(input.household);
+  const ls = asRecord(input.lifestyle);
+  const defaults = DEFAULT_PROFILE.lifestyle;
+
+  const household = /** @type {Household} */ (Object.fromEntries(HOUSEHOLD_KEYS.map((k) => [k, asBool(hh[k])])));
+  const commute = pickEnum(
+    ls.commute,
+    { field: 'commute', allowed: COMMUTE_MODES, fallback: defaults.commute },
+    errors,
+  );
+
+  return {
+    ok: errors.length === 0 && true,
+    value: {
+      household,
+      lifestyle: {
+        commute,
+        commuteKm: pickCommuteKm(ls.commuteKm, commute, errors),
+        cooking: pickEnum(ls.cooking, { field: 'cooking', allowed: COOKING_FUELS, fallback: defaults.cooking }, errors),
+        heating: pickEnum(ls.heating, { field: 'heating', allowed: HEATING_TYPES, fallback: defaults.heating }, errors),
+        homeType: pickEnum(
+          ls.homeType,
+          { field: 'homeType', allowed: HOME_TYPES, fallback: defaults.homeType },
+          errors,
+        ),
+        hasPurifier: asBool(ls.hasPurifier),
+      },
+    },
+    errors,
+  };
+}
+
+/**
+ * Plain-language names of the vulnerable or exposed people in a household.
+ * @param {Household} household
+ * @returns {string[]}
+ */
 export function sensitiveGroups(household) {
+  /** @type {string[]} */
   const labels = [];
   if (household.respiratory) labels.push('someone with asthma, COPD or a heart condition');
   if (household.children) labels.push('children');
